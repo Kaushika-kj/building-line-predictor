@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Building Line Predictor</title>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f6f8;
+            margin: 0;
+            display: flex;
+        }
+
+        /* ======================
+           Sidebar
+        ====================== */
+        .sidebar {
+            background-color: #1f2937;
+            color: #fff;
+            height: 100vh;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .sidebar h3 {
+            margin-top: 0;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .sidebar a {
+            display: block;
+            padding: 10px;
+            margin-bottom: 8px;
+            text-decoration: none;
+            color: #d1d5db;
+            border-radius: 5px;
+        }
+
+        .sidebar a:hover {
+            background-color: #374151;
+            color: #fff;
+        }
+
+        /* ======================
+           Main Content
+        ====================== */
+        .main-content {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 40px;
+        }
+
+        .container {
+            background-color: #fff;
+            padding: 30px 40px;
+            border-radius: 10px;
+            box-shadow: 0px 0px 15px rgba(0,0,0,0.1);
+            width: 520px;
+        }
+
+        h2 {
+            text-align: center;
+            margin-bottom: 20px;
+            color: #333;
+        }
+
+        h3 {
+            margin-top: 25px;
+        }
+
+        label {
+            display: block;
+            margin-top: 12px;
+            margin-bottom: 5px;
+            color: #555;
+        }
+
+        input, select {
+            width: 100%;
+            padding: 8px 10px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+            font-size: 14px;
+        }
+
+        button {
+            width: 100%;
+            padding: 10px;
+            margin-top: 20px;
+            background-color: #007bff;
+            color: #fff;
+            font-size: 16px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #e9f5ff;
+            border-radius: 5px;
+            border: 1px solid #b3d7ff;
+        }
+    </style>
+</head>
+
+<body>
+
+<!-- ======================
+     Sidebar
+====================== -->
+<div class="sidebar">
+    <h3>Urban Tools</h3>
+    <a href="index.html">📊 Predict Building Line </a>
+    <a href="generate.html">👷 Predict Building Line Scenarios</a>
+</div>
+
+<!-- ======================
+     Main Content
+====================== -->
+<div class="main-content">
+
+    <div class="container">
+        <h2>Predict Building Line </h2>
+
+        <!-- Inputs -->
+        <label>Road Width (m)</label>
+        <input type="number" id="road_width" value="12" step="0.1">
+
+        <label>Traffic Volume</label>
+        <input type="number" id="traffic_volume" value="5000">
+
+        <label>Functional Mix</label>
+        <select id="functional_mix">
+            <option value="1">Live</option>
+            <option value="2">Work</option>
+            <option value="3">Visit</option>
+            <option value="4">Work + Visit</option>
+            <option value="5">Live + Visit</option>
+            <option value="6">Live + Work</option>
+            <option value="7">Live + Work + Visit</option>
+        </select>
+
+        <label>Building Density</label>
+        <select id="building_density">
+            <option value="1">High</option>
+            <option value="2">Moderate</option>
+            <option value="3">Low</option>
+        </select>
+
+        <label>Connectivity</label>
+        <input type="number" id="connectivity" value="0.7" step="0.01">
+
+        <!-- Manual Weights -->
+        <h3>Assign Weights (Sum must be 1)</h3>
+
+        <label>Weight – Road Width</label>
+        <input type="number" id="w_road_width" value="0.2" step="0.01">
+
+        <label>Weight – Traffic Volume</label>
+        <input type="number" id="w_traffic_volume" value="0.2" step="0.01">
+
+        <label>Weight – Functional Mix</label>
+        <input type="number" id="w_functional_mix" value="0.2" step="0.01">
+
+        <label>Weight – Building Density</label>
+        <input type="number" id="w_building_density" value="0.2" step="0.01">
+
+        <label>Weight – Connectivity</label>
+        <input type="number" id="w_connectivity" value="0.2" step="0.01">
+
+        <button onclick="predictBuildingLineWithWeight()">Predict</button>
+
+        <div class="result" id="result" style="display:none;"></div>
+    </div>
+</div>
+
+<script>
+    function validateWeights() {
+        const weights = [
+            parseFloat(document.getElementById('w_road_width').value),
+            parseFloat(document.getElementById('w_traffic_volume').value),
+            parseFloat(document.getElementById('w_functional_mix').value),
+            parseFloat(document.getElementById('w_building_density').value),
+            parseFloat(document.getElementById('w_connectivity').value)
+        ];
+
+        if (weights.some(isNaN)) {
+            alert("All weights must be valid numbers.");
+            return false;
+        }
+
+        const sum = weights.reduce((a, b) => a + b, 0);
+
+        if (Math.abs(sum - 1) > 0.0001) {
+            alert("Total weight must be exactly 1.\nCurrent sum: " + sum.toFixed(2));
+            return false;
+        }
+
+        return true;
+    }
+
+    async function predictBuildingLineWithWeight() {
+
+        if (!validateWeights()) return;
+
+        const payload = {
+            road_width: parseFloat(document.getElementById('road_width').value),
+            traffic_volume: parseFloat(document.getElementById('traffic_volume').value),
+            functional_mix: parseInt(document.getElementById('functional_mix').value),
+            building_density: parseInt(document.getElementById('building_density').value),
+            connectivity: parseFloat(document.getElementById('connectivity').value),
+
+            weights: {
+                road_width: parseFloat(document.getElementById('w_road_width').value),
+                traffic_volume: parseFloat(document.getElementById('w_traffic_volume').value),
+                functional_mix: parseFloat(document.getElementById('w_functional_mix').value),
+                building_density: parseFloat(document.getElementById('w_building_density').value),
+                connectivity: parseFloat(document.getElementById('w_connectivity').value)
+            }
+        };
+
+        try {
+            const response = await fetch("http://127.0.0.1:8000/predictWithWeight", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) throw new Error("API Error " + response.status);
+
+            const result = await response.json();
+
+            let weightsHTML = "<ul>";
+            for (const [k, v] of Object.entries(result.weights)) {
+                weightsHTML += `<li><b>${k}</b>: ${v.toFixed(3)}</li>`;
+            }
+            weightsHTML += "</ul>";
+
+            const resultDiv = document.getElementById("result");
+            resultDiv.style.display = "block";
+            resultDiv.innerHTML = `
+                <h3>Prediction Results</h3>
+                <p><strong>Final Building Line:</strong> ${result.building_line_final.toFixed(2)} m</p>
+                <p><strong>Used Weights:</strong></p>
+                ${weightsHTML}
+            `;
+
+        } catch (err) {
+            alert("Error: " + err.message);
+        }
+    }
+</script>
+
+</body>
+</html>
