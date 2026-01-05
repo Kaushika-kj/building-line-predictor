@@ -5,3 +5,4 @@ tensorflow~=2.20.0
 scikit-learn~=1.2.2
 fastapi~=0.116.1
 pydantic~=1.10.12
+uvicorn~=0.38.0
